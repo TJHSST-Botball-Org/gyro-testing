@@ -5,7 +5,7 @@ double calibrate_gyroscope(){
     double gyro_z_sum = 0;
     int num_samples = 100;  // Number of samples for averaging
     for (int i = 0; i<num_samples; i++){
-        double gz = gyro_z();  // Read gyroscope data
+        double gz = gyro_x();  // Read gyroscope data
         gyro_z_sum += gz;  // Accumulate gyro z readings
     }
     double gyro_z_bias = gyro_z_sum / num_samples;  // Calculate bias for gyro z
@@ -21,7 +21,7 @@ void estimate_orientation(double zbias){
         //gyro_calibrate();
         //float gx = gyro_x();
         //float gy = gyro_y();
-        double gz = gyro_z() - zbias; // Read gyroscope data
+        double gz = gyro_x() - zbias; // Read gyroscope data
         double current_time = seconds();  // Get the current time
         double delta_time = current_time - last_time;  // Calculate the time difference
         //std::cout << delta_time;
@@ -34,13 +34,38 @@ void estimate_orientation(double zbias){
     }
 }
 
+void go_straight(double speed, double duration_sec){
+    double zbias = calibrate_gyroscope();
+    msleep(1500);
+
+    double last_time = seconds();
+    double orientation = 0;
+    double Kp = 0.00001;  // Proportional gain for heading correction
+
+    while(seconds() - last_time < duration_sec){
+        double gz = gyro_x() - zbias;
+        double dt = 0.01;
+        orientation += gz * dt;
+
+        double correction = Kp * orientation;
+
+        // left motors
+        motor(0, speed - correction);
+        motor(3, speed - correction);
+
+        // right motors
+        motor(1, speed + correction);
+        motor(2, speed + correction);
+
+        msleep(10);
+    }
+
+    ao();
+}
+
 int main(){
-    double zb = calibrate_gyroscope();
-	msleep(1500);
-    estimate_orientation(zb);
-    msleep(1500);
-    zb = calibrate_gyroscope();
-    msleep(1500);
-    estimate_orientation(zb);
+    std::cout << "Driving straight...\n";
+    go_straight(50, 15);  // use seconds
+    msleep(500);
     return 0;
 }
