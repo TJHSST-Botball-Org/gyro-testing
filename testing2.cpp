@@ -2,15 +2,15 @@
 #include <iostream>
 
 double calibrate_gyroscope(){
-    double gyro_z_sum = 0;
-    int num_samples = 100;  // Number of samples for averaging
+    double gyro_x_sum = 0;
+    int num_samples = 200;  // Number of samples for averaging
     for (int i = 0; i<num_samples; i++){
-        double gz = gyro_x();  // Read gyroscope data
-        gyro_z_sum += gz;  // Accumulate gyro z readings
+        double gx = gyro_x();  // Read gyroscope data
+        gyro_x_sum += gx;  // Accumulate gyro z readings
     }
-    double gyro_z_bias = gyro_z_sum / num_samples;  // Calculate bias for gyro z
-	std::cout << gyro_z_bias;
-    return gyro_z_bias;
+    double gyro_x_bias = gyro_x_sum / num_samples;  // Calculate bias for gyro z
+	std::cout << gyro_x_bias;
+    return gyro_x_bias;
 }
 
 void estimate_orientation(double zbias){
@@ -35,27 +35,32 @@ void estimate_orientation(double zbias){
 }
 
 void go_straight(double speed, double duration_sec){
-    double zbias = calibrate_gyroscope();
-    msleep(1500);
+    double xbias = calibrate_gyroscope();
+    msleep(1000);
 
-    double last_time = seconds();
+    double start_time = seconds();
+    double last_time = start_time;
     double orientation = 0;
-    double Kp = 0.00001;  // Proportional gain for heading correction
+    double Kp = 0.005;
 
-    while(seconds() - last_time < duration_sec){
-        double gz = gyro_x() - zbias;
-        double dt = 0.01;
-        orientation += gz * dt;
+    while(seconds() - start_time < duration_sec){
+        double current_time = seconds();
+        double dt = current_time - last_time;
+        last_time = current_time;
 
-        double correction = Kp * orientation;
+        double gx = gyro_x() - xbias;
+        orientation += gx * dt;
 
-        // left motors
-        motor(0, speed - correction);
-        motor(3, speed - correction);
+        double error = -orientation;
+        double correction = Kp * error;
 
-        // right motors
-        motor(1, speed + correction);
-        motor(2, speed + correction);
+        int left = speed - correction;
+        int right = speed + correction;
+
+        motor(0, left);
+        motor(3, left);
+        motor(1, right);
+        motor(2, right);
 
         msleep(10);
     }
